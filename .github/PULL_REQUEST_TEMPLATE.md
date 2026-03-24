@@ -1,0 +1,1 @@
+../way/.github/PULL_REQUEST_TEMPLATE.md
