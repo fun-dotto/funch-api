@@ -127,7 +127,7 @@ func (siw *ServerInterfaceWrapper) MenuItemsV1List(c *gin.Context) {
 		return
 	}
 
-	err = runtime.BindQueryParameterWithOptions("form", false, true, "date", c.Request.URL.Query(), &params.Date, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "date", c.Request.URL.Query(), &params.Date, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter date: %w", err), http.StatusBadRequest)
 		return
