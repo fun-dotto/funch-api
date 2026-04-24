@@ -1,4 +1,4 @@
-module github.com/fun-dotto/api-template
+module github.com/fun-dotto/funch-api
 
 go 1.25.6
 
