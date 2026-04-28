@@ -23,13 +23,28 @@ func (r *menuItemRepository) GetMenuItemsByDate(ctx context.Context, date time.T
 		return nil, err
 	}
 
+	if len(dbMenuItems) == 0 {
+		return []domain.MenuItem{}, nil
+	}
+
+	menuItemIDs := make([]uint, len(dbMenuItems))
+	for i, dbMenuItem := range dbMenuItems {
+		menuItemIDs[i] = dbMenuItem.ID
+	}
+
+	var dbPrices []database.MenuItemPrice
+	if err := r.db.WithContext(ctx).Where("menu_item_id IN ?", menuItemIDs).Find(&dbPrices).Error; err != nil {
+		return nil, err
+	}
+
+	pricesByMenuItemID := make(map[uint][]database.MenuItemPrice, len(dbMenuItems))
+	for _, dbPrice := range dbPrices {
+		pricesByMenuItemID[dbPrice.MenuItemID] = append(pricesByMenuItemID[dbPrice.MenuItemID], dbPrice)
+	}
+
 	domainMenuItems := make([]domain.MenuItem, len(dbMenuItems))
 	for i, dbMenuItem := range dbMenuItems {
-		var dbPrices []database.MenuItemPrice
-		if err := r.db.WithContext(ctx).Where("menu_item_id = ?", dbMenuItem.ID).Find(&dbPrices).Error; err != nil {
-			return nil, err
-		}
-		domainMenuItems[i] = dbMenuItem.ToDomain(dbPrices)
+		domainMenuItems[i] = dbMenuItem.ToDomain(pricesByMenuItemID[dbMenuItem.ID])
 	}
 
 	return domainMenuItems, nil
