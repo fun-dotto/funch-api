@@ -27,7 +27,7 @@ func (r *menuItemRepository) GetMenuItemsByDate(ctx context.Context, date time.T
 		return []domain.MenuItem{}, nil
 	}
 
-	menuItemIDs := make([]uint, len(dbMenuItems))
+	menuItemIDs := make([]string, len(dbMenuItems))
 	for i, dbMenuItem := range dbMenuItems {
 		menuItemIDs[i] = dbMenuItem.ID
 	}
@@ -37,7 +37,7 @@ func (r *menuItemRepository) GetMenuItemsByDate(ctx context.Context, date time.T
 		return nil, err
 	}
 
-	pricesByMenuItemID := make(map[uint][]database.MenuItemPrice, len(dbMenuItems))
+	pricesByMenuItemID := make(map[string][]database.MenuItemPrice, len(dbMenuItems))
 	for _, dbPrice := range dbPrices {
 		pricesByMenuItemID[dbPrice.MenuItemID] = append(pricesByMenuItemID[dbPrice.MenuItemID], dbPrice)
 	}
