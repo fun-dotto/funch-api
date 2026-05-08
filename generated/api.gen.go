@@ -76,6 +76,15 @@ type MenuItem struct {
 	Prices   []Price            `json:"prices"`
 }
 
+// MenuItemRequest defines model for MenuItemRequest.
+type MenuItemRequest struct {
+	Category Category           `json:"category"`
+	Date     openapi_types.Date `json:"date"`
+	ImageUrl string             `json:"imageUrl"`
+	Name     string             `json:"name"`
+	Prices   []Price            `json:"prices"`
+}
+
 // Price defines model for Price.
 type Price struct {
 	// Price 価格
@@ -94,11 +103,17 @@ type MenuItemsV1ListParams struct {
 	Date openapi_types.Date `form:"date" json:"date"`
 }
 
+// MenuItemsV1CreateJSONRequestBody defines body for MenuItemsV1Create for application/json ContentType.
+type MenuItemsV1CreateJSONRequestBody = MenuItemRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
 	// (GET /v1/menuItems)
 	MenuItemsV1List(c *gin.Context, params MenuItemsV1ListParams)
+
+	// (POST /v1/menuItems)
+	MenuItemsV1Create(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -143,6 +158,19 @@ func (siw *ServerInterfaceWrapper) MenuItemsV1List(c *gin.Context) {
 	siw.Handler.MenuItemsV1List(c, params)
 }
 
+// MenuItemsV1Create operation middleware
+func (siw *ServerInterfaceWrapper) MenuItemsV1Create(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.MenuItemsV1Create(c)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -171,6 +199,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/v1/menuItems", wrapper.MenuItemsV1List)
+	router.POST(options.BaseURL+"/v1/menuItems", wrapper.MenuItemsV1Create)
 }
 
 type MenuItemsV1ListRequestObject struct {
@@ -192,11 +221,33 @@ func (response MenuItemsV1List200JSONResponse) VisitMenuItemsV1ListResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type MenuItemsV1CreateRequestObject struct {
+	Body *MenuItemsV1CreateJSONRequestBody
+}
+
+type MenuItemsV1CreateResponseObject interface {
+	VisitMenuItemsV1CreateResponse(w http.ResponseWriter) error
+}
+
+type MenuItemsV1Create201JSONResponse struct {
+	MenuItem MenuItem `json:"menuItem"`
+}
+
+func (response MenuItemsV1Create201JSONResponse) VisitMenuItemsV1CreateResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
 	// (GET /v1/menuItems)
 	MenuItemsV1List(ctx context.Context, request MenuItemsV1ListRequestObject) (MenuItemsV1ListResponseObject, error)
+
+	// (POST /v1/menuItems)
+	MenuItemsV1Create(ctx context.Context, request MenuItemsV1CreateRequestObject) (MenuItemsV1CreateResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -231,6 +282,39 @@ func (sh *strictHandler) MenuItemsV1List(ctx *gin.Context, params MenuItemsV1Lis
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(MenuItemsV1ListResponseObject); ok {
 		if err := validResponse.VisitMenuItemsV1ListResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MenuItemsV1Create operation middleware
+func (sh *strictHandler) MenuItemsV1Create(ctx *gin.Context) {
+	var request MenuItemsV1CreateRequestObject
+
+	var body MenuItemsV1CreateJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.MenuItemsV1Create(ctx, request.(MenuItemsV1CreateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MenuItemsV1Create")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(MenuItemsV1CreateResponseObject); ok {
+		if err := validResponse.VisitMenuItemsV1CreateResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
